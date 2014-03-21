@@ -1,0 +1,132 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+#include "celula.h"
+#include "lista.h"
+#include "pilha.h"
+#include "grafo.h"
+#include "busca.h"
+#include "utils.h"
+
+// Itera sobre o formato de entrada, conforme especificacao
+void DFSArquivo(char * input_file, char * output_file) {
+  FILE * input = fopen(input_file, "r");
+  FILE * output = fopen(output_file, "w");
+
+  if(!input || !output) {
+    printf("Erro ao abrir arquivo de entrada ou saida\n");
+    exit(1);
+  }
+
+  int num_instancias, contador1;
+  fscanf(input, "%d", &num_instancias);
+
+  // Para cada instancia
+  for (contador1 = 0; contador1 < num_instancias; contador1++) {
+    // Construa o grafo, a partir das arestas
+    int num_vertices, num_arestas, contador2;
+    fscanf(input, "%d %d", &num_vertices, &num_arestas);
+
+    TipoGrafo grafo;
+    grafo.num_vertices = num_vertices;
+    int digits = GetNumberOfDigits(num_vertices) + 1;
+    FGVazio(&grafo);
+
+    // Para cada aresta
+    for (contador2 = 0; contador2 < num_arestas; contador2++) {
+      TipoValorVertice aresta1, aresta2;
+      fscanf(input, "%d %d", &aresta1, &aresta2);
+
+      // Arestas devem começar em 0
+      aresta1--;
+      aresta2--;
+
+      InsereAresta(&aresta1, &aresta2, &grafo);
+      InsereAresta(&aresta2, &aresta1, &grafo);
+    }
+
+    int num_consultas;
+    fscanf(input, "%d", &num_consultas);
+    // Para cada consulta
+    for (contador2 = 0; contador2 < num_consultas; contador2++) {
+      TipoValorVertice inicio, final;
+      fscanf(input, "%d %d", &inicio, &final);
+      inicio--;
+      final--;
+
+      char * resultado = (char*) malloc(sizeof(char) *
+                                        ((num_vertices * digits) + 1));
+      DFS(&inicio, &final, &grafo, resultado);
+      fprintf(output, "%s\n", resultado); // Escreve a saida, dada a solucao
+      free(resultado);
+      FGBranco(&grafo);
+    }
+    DestroiGrafo(&grafo);
+  }
+
+  fclose(input);
+  fclose(output);
+}
+
+// Dado um vertice e o grafo a qual pertence, retorna, se existente, o vertice
+// adjacente de cor branca com menor indice
+TipoValorVertice ProxAdjBranco(TipoValorVertice vertice, TipoGrafo *grafo) {
+  TipoApontador aux = PrimeiroListaAdj(vertice, grafo);
+  while (aux != NULL) { //enquanto nao acaba lista de adj
+    if(grafo->cores[aux->item.vertice] == branco) {
+      return (TipoValorVertice) aux->item.vertice;
+    } else {
+      aux = aux->prox;
+    }
+  }
+  return -1;
+}
+
+// Realiza a busca em profundidade com auxilio de uma pilha, dados o no inicial
+// e final
+void DFS(TipoValorVertice *inicial,
+         TipoValorVertice *final,
+         TipoGrafo *grafo,
+         char *resultado) {
+
+  // Estruturas necessarias
+  TipoPilha pilha1;
+  FPVazia(&pilha1);
+  char temp[10] = "";
+
+  // Prepara para a busca
+  TipoValorVertice atual = *inicial;
+
+  sprintf(temp, "%d ", (*inicial + 1));
+  strcpy(resultado, temp);
+
+  // Marca o no inicio como descoberto e coloca-o no topo da pilha
+  grafo->cores[atual] = cinza;
+  TipoItem x;
+  x.vertice = *inicial;
+  Empilha(&x, &pilha1);
+
+  //enquanto a pilha não está vazia
+  while (!PVazia(pilha1) && atual != *final) {
+    atual = pilha1.topo->prox->item.vertice;
+    TipoValorVertice prox_branco = ProxAdjBranco(atual, grafo);
+
+    if (prox_branco != -1) {
+      // Novo vertice visitado deve ser armazeado para o log de saida
+      sprintf(temp, "%d ", (prox_branco + 1));
+      strcat(resultado, temp);
+      atual = prox_branco;
+      grafo->cores[atual] = cinza;
+      x.vertice = atual;
+      Empilha(&x, &pilha1);
+    } else {
+      // Vertice nao tem mais adjacentes, marca como preto
+      grafo->cores[atual] = preto;
+      Desempilha(&pilha1, &x);
+    }
+  }
+  strcat(resultado, "\n");
+
+  DestroiPilha(&pilha1);
+}
